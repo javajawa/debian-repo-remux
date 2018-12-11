@@ -22,11 +22,20 @@ class UnattachedAptObjectException(Exception):
     pass
 
 
+class NonExistentException(Exception):
+    """The excpetion is raised where an :class:AptRepoObject is used
+    but does not exist in the repo.
+
+    Reliance on this exception is discouraged, and code should call
+    .exists() on the object first."""
+    pass
+
+
 class AptRepoObject(object):
-    repo = ...  # type: Optional[AptRepoObject]
+    repo = ...  # type: Optional[Repo]
     parent = ...  # type: Optional[AptRepoObject]
 
-    def __init__(self, parent: Optional['AptRepoObject'], repo: Optional['AptRepoObject']):
+    def __init__(self, parent: Optional['AptRepoObject'], repo: Optional['Repo']):
         self.parent = parent
         self.repo = repo
 
@@ -126,10 +135,37 @@ class Distribution(AptRepoObject):
         self.distribution = name
         self.release_data = None
 
+    def exists(self) -> bool:
+        """Returns whether the distribution currently existing in the repo.
+
+        Existing is, in this context, defined as having a parseable
+        release file.
+        If the Repo was created with a GPG context, then the release file
+        must also have a valid signature (either inline in the InRelease
+        file, or as part of a Release/Release.gpg file pair)
+
+        :return: Whether this distribution exists
+        """
+        if self._exists is not None:
+            return self._exists
+
+        try:
+            self._exists = bool(self._get_release_file())
+        except:
+            self._exists = False
+
+        return self._exists
+
     def components(self) -> List[str]:
+        if not self.exists():
+            raise NonExistentException
+
         return self._get_release_file().components()
 
     def architectures(self) -> List[str]:
+        if not self.exists():
+            raise NonExistentException
+
         return self._get_release_file().architectures()
 
     def _get_release_file(self):
