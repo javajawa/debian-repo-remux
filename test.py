@@ -7,4 +7,10 @@ from apt_repo import Repo
 
 if __name__ == "__main__":
     repo = Repo('https://deb.tgvg.net/debian')
-    repo.distribution('stable')
+    print(vars(repo))
+
+    distribution = repo.distribution('stable')
+
+    print(distribution.exists())
+    print(distribution.components())
+    print(distribution.architectures())

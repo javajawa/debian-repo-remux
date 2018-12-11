@@ -146,7 +146,7 @@ class Distribution(AptRepoObject):
 
         :return: Whether this distribution exists
         """
-        if self._exists is not None:
+        if self._exists is not Ellipsis:
             return self._exists
 
         try:
