@@ -39,11 +39,11 @@ class AptRepoObject(object):
         self.parent = parent
         self.repo = repo
 
-    def get_parent_of_type(self, type: Type['AptRepoObject']) -> Optional['AptRepoObject']:
+    def get_parent_of_type(self, object_type: Type['AptRepoObject']) -> Optional['AptRepoObject']:
         parent = self
 
         while parent:
-            if isinstance(parent, type):
+            if isinstance(parent, object_type):
                 return parent
 
             parent = self.parent
@@ -126,7 +126,7 @@ class Distribution(AptRepoObject):
     """
 
     distribution = ...  # type: str
-    _exists = ... # type: bool
+    _exists = ...  # type: bool
     release_data = None  # type: Optional[apt_tags.ReleaseFile]
 
     def __init__(self, parent: 'Repo', name: str):
