@@ -10,22 +10,27 @@ import urllib.parse
 import urllib.request
 import os
 
-from typing import List, Union, IO, Type
+from typing import List, IO, Type, Optional
 from gnupg import GPG
 
 import apt_tags
 
 
-class NotInRepoException(Exception):
+class UnattachedAptObjectException(Exception):
+    """Exception indicating that an AptReopObject is being used outside
+    of an existing :class:Repo content"""
     pass
 
 
 class AptRepoObject(object):
-    def __init__(self, parent: Union['AptRepoObject', None], repo: Union['Repo', None]):
+    repo = ...  # type: Optional[AptRepoObject]
+    parent = ...  # type: Optional[AptRepoObject]
+
+    def __init__(self, parent: Optional['AptRepoObject'], repo: Optional['AptRepoObject']):
         self.parent = parent
         self.repo = repo
 
-    def get_parent_of_type(self, type: Type['AptRepoObject']) -> Union['AptRepoObject', None]:
+    def get_parent_of_type(self, type: Type['AptRepoObject']) -> Optional['AptRepoObject']:
         parent = self
 
         while parent:
@@ -38,7 +43,7 @@ class AptRepoObject(object):
 
     def _resolve_path(self, relative_path: List[str]) -> str:
         if not self.repo:
-            raise NotInRepoException()
+            raise UnattachedAptObjectException()
 
         path = self.repo.base_uri
 
@@ -49,7 +54,7 @@ class AptRepoObject(object):
 
     def _open_file(self, relative_path: List[str]) -> IO:
         if not self.repo:
-            raise NotInRepoException()
+            raise UnattachedAptObjectException()
 
         path = self._resolve_path(relative_path)
 
@@ -61,7 +66,7 @@ class AptRepoObject(object):
 
     def _list_dir(self, relative_path: List[str]) -> IO:
         if not self.repo:
-            raise NotInRepoException()
+            raise UnattachedAptObjectException()
 
         path = self._resolve_path(relative_path)
 
@@ -80,7 +85,14 @@ class Repo(AptRepoObject):
     """
     Class that represents a Debian repo somewhere
     """
-    def __init__(self, base_uri: str, gpg: Union[GPG, None] = None):
+    protocol = ...  # type: str
+    base_uri = ...  # type: str
+
+    distributions = None  # type: Optional[List[Distribution]]
+
+    gpg = ...  # type: Optional[GPG]
+
+    def __init__(self, base_uri: str, gpg: Optional[GPG] = None):
         super(Repo, self).__init__(None, self)
 
         if base_uri[0] == '/':
@@ -94,11 +106,19 @@ class Repo(AptRepoObject):
         self.distributions = None
 
     def distribution(self, distribution: str) -> 'Distribution':
-        pass
+        return Distribution(self, distribution)
 
 
 class Distribution(AptRepoObject):
-    release_data = None  # type: Union[apt_tags.ReleaseFile, None]
+    """A distribution contains the meta data for a major grouping of packages
+    within a :class:Repo, such as all of those used for a major release.
+
+
+    """
+
+    distribution = ...  # type: str
+    _exists = ... # type: bool
+    release_data = None  # type: Optional[apt_tags.ReleaseFile]
 
     def __init__(self, parent: 'Repo', name: str):
         super(Distribution, self).__init__(parent, parent)

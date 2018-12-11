@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from typing import Union, List, Generator, Dict
+from typing import List, Generator, Dict, Optional
 
 
 class TagBlock:
@@ -22,10 +22,10 @@ class TagBlock:
     def __contains__(self, item: str) -> bool:
         return item in self.dict
 
-    def __getitem__(self, item: str) -> Union[str, List[str]]:
+    def __getitem__(self, item: str) -> str:
         return self.dict[item]
 
-    def __setitem__(self, key: str, value: Union[str, List[str]]) -> None:
+    def __setitem__(self, key: str, value: str) -> None:
         if key in self.magic:
             raise KeyError("Set on magic field " + key + " was not handled in class " + type(self).__name__)
 
@@ -83,7 +83,7 @@ class TagBlock:
         # Output the resulting string
         return '\n'.join(filter(None, elements))
 
-    def _write_property(self, key: str) -> Union[str, None]:
+    def _write_property(self, key: str) -> Optional[str]:
         value = self[key]  # type: str
 
         if value is None:
@@ -124,7 +124,7 @@ class ReleaseFile(TagBlock):
                     key: checksum
                 }
 
-    def __getitem__(self, key: str) -> Union[str, None]:
+    def __getitem__(self, key: str) -> Optional[str]:
         if key not in self.magic:
             return super(ReleaseFile, self).__getitem__(key)
 
