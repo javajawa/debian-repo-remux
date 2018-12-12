@@ -2,7 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Class the represents a Debian repo somewhere
+Class structure for containing the conceptual view of an APT Repository.
+
+A complete repository is represented by the Repository class, with subsections
+handled by classes that extend the abstract AbstractRepoObject class.
+
+Each AbstractRepoObject is expects to belong to a Repository, from where
+it inherits information like its URI for reading and writing data.
 """
 
 import urllib.error
@@ -19,13 +25,13 @@ import apt_tags
 
 
 class UnattachedAptObjectException(Exception):
-    """Exception indicating that an AptReopObject is being used outside
-    of an existing :class:Repo content"""
+    """Exception indicating that an AbstractRepoObject is being used outside
+    of an existing :class:Repository content"""
     pass
 
 
 class NonExistentException(Exception):
-    """The excpetion is raised where an :class:AptRepoObject is used
+    """The excpetion is raised where an :class:AbstractRepoObject is used
     but does not exist in the repo.
 
     Reliance on this exception is discouraged, and code should call
@@ -33,15 +39,24 @@ class NonExistentException(Exception):
     pass
 
 
-class AptRepoObject(object):
-    repo = ...  # type: Optional[Repo]
-    parent = ...  # type: Optional[AptRepoObject]
+class AbstractRepoObject(object):
+    """The AbstractRepoObject represents any part of an APT repository,
+    and provides implementations the required logic for reading and writing
+    files to that repository.
+    """
+    repo = ...  # type: Optional[Repository]
+    parent = ...  # type: Optional[AbstractRepoObject]
 
-    def __init__(self, parent: Optional['AptRepoObject'], repo: Optional['Repo']):
+    def __init__(self, parent: Optional['AbstractRepoObject'], repo: Optional['Repository']):
         self.parent = parent
         self.repo = repo
 
-    def get_parent_of_type(self, object_type: Type['AptRepoObject']) -> Optional['AptRepoObject']:
+    def get_parent_of_type(self, object_type: Type['AbstractRepoObject']) -> Optional['AbstractRepoObject']:
+        """Traverse up this object ancestry to find the nearest object of
+        te type supplied
+
+        :param Type[AbstractRepoObject] object_type: The type that is requested
+        :return AbstractRepoObject:"""
         parent = self
 
         while parent:
@@ -129,9 +144,19 @@ class AptRepoObject(object):
             return urllib.request.urlopen(path)
 
 
-class Repo(AptRepoObject):
-    """
-    Class that represents a Debian repo somewhere
+class Repository(AbstractRepoObject):
+    """Class that represents a complete APT repository
+
+    An APT repository is a simple data store generally broken down into two
+    distinct parts.
+
+    The first is the "Pool": an unstructured blob store of all the
+    .deb package files in the Repository which can be downloaded and
+    installed onto a machine.
+
+    The second is a series of distributions contained structured and signed
+    metadata about the Packages in the pool, allowing tools to find relevant
+    packages, do dependency resolution, and then download the packages.
     """
     protocol = ...  # type: str
     base_uri = ...  # type: str
@@ -141,7 +166,7 @@ class Repo(AptRepoObject):
     gpg = ...  # type: Optional[GPG]
 
     def __init__(self, base_uri: str, gpg: Optional[GPG] = None):
-        super(Repo, self).__init__(None, self)
+        super(Repository, self).__init__(None, self)
 
         if base_uri[0] == '/':
             base_uri = 'file://' + base_uri
@@ -154,12 +179,23 @@ class Repo(AptRepoObject):
         self.distributions = None
 
     def distribution(self, distribution: str) -> 'Distribution':
+        """Gets a distribution object from this Repo by name.
+
+        This method is just a convince method around the Distribution
+        constructor.
+
+        Note that the Distribution may not exist, you must check that with
+        distribution.exists().
+
+        :param dtr distribution:
+        :return Distribution:
+        """
         return Distribution(self, distribution)
 
 
-class Distribution(AptRepoObject):
+class Distribution(AbstractRepoObject):
     """A distribution contains the meta data for a major grouping of packages
-    within a :class:Repo, such as all of those used for a major release.
+    within a :class:Repository, such as all of those used for a major release.
 
     All of the packages in a repo are expected to be compatible with a system,
     although some may conflict directly with each other.
@@ -168,25 +204,25 @@ class Distribution(AptRepoObject):
     grouping, normally based on licensing requirements) and "architecture"
     (the CPU type that the package was built for).
 
-    All combinations of these should have a valid PackageList.
+    All combinations of these should have a valid PackageList of packages in
+    the Repository's Pool
     """
 
     distribution = ...  # type: str
     _exists = ...  # type: bool
     release_data = None  # type: Optional[apt_tags.ReleaseFile]
 
-    def __init__(self, parent: 'Repo', name: str):
+    def __init__(self, parent: 'Repository', name: str):
         super(Distribution, self).__init__(parent, parent)
 
         self.distribution = name
-        self.release_data = None
 
     def exists(self) -> bool:
         """Returns whether the distribution currently existing in the repo.
 
         Existing is, in this context, defined as having a parse-able
         release file.
-        If the Repo was created with a GPG context, then the release file
+        If the Repository was created with a GPG context, then the release file
         must also have a valid signature (either inline in the InRelease
         file, or as part of a Release/Release.gpg file pair)
 
@@ -248,7 +284,21 @@ class Distribution(AptRepoObject):
 
                 break
 
-    def _get_release_file(self):
+    def _get_release_file(self) -> apt_tags.ReleaseFile:
+        """Download and parses the InRelease/Release files for this Repository.
+
+        If the Repository has a GPG Context, the signature will also be verified.
+        In that case, the file "InRelease" is downloaded first, followed by
+        the "Release" and detatched signature "Release.gpg" if the former was
+        not available.
+
+        Without a GPG context, only "Release" is downloaded.
+
+        This function will return None if the listed files are not available,
+        or if the GPG signatures were not verified.
+
+        :return apt_tags.ReleaseFile:
+        """
         if self.release_data:
             return self.release_data
 
@@ -274,6 +324,7 @@ class Distribution(AptRepoObject):
 
             # Treat all non-404 errors as fatal
             # A 404 here still allows us to fall back to the Release file
+            # FIXME: self._open_file should not ever throw this, but a custom exception clear for multiple transports
             except urllib.error.HTTPError as ex:
                 if ex.code != 404:
                     raise ex
