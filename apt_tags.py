@@ -11,6 +11,11 @@ class TagBlock:
 
     This class acts as if it is a dict/hash, and provides
     """
+    required = ...  # type: List[str]
+    order_first = ...  # type: List[str]
+    order_last = ...  # type: List[str]
+    magic = ...  # type: List[str]
+    dict = ...  # type: Dict[str, str]
 
     def __init__(self):
         self.required = []
@@ -99,7 +104,7 @@ class ReleaseFile(TagBlock):
     def __init__(self):
         super(ReleaseFile, self).__init__()
 
-        self.magic.append('MD5')
+        self.magic.append('MD5Sum')
         self.magic.append('SHA1')
         self.magic.append('SHA256')
         self.magic.append('SHA512')
@@ -144,17 +149,21 @@ class ReleaseFile(TagBlock):
         return '\n'.join(output)
 
     def components(self) -> List[str]:
-        """Returns the list of components
+        """Returns the list of components as a python List
 
-        :return:
+        :return List[str]:
         """
         return self['Components'].split(' ')
 
     def architectures(self) -> List[str]:
+        """Returns the list of architectures as a python List
+
+        :return List[str]:
+        """
         return self['Architectures'].split(' ')
 
 
-def read_tag_file(data: bytes, template: callable(TagBlock) = TagBlock) -> Generator[Dict[str, str], None, None]:
+def read_tag_file(data: bytes, template: callable(TagBlock) = TagBlock) -> Generator[TagBlock, None, None]:
     tags = template()  # type: TagBlock
     key = None
 
