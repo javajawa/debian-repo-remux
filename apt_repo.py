@@ -31,7 +31,7 @@ class UnattachedAptObjectException(Exception):
 
 
 class NonExistentException(Exception):
-    """The excpetion is raised where an :class:AbstractRepoObject is used
+    """The exception is raised where an :class:AbstractRepoObject is used
     but does not exist in the repo.
 
     Reliance on this exception is discouraged, and code should call
@@ -275,9 +275,9 @@ class Distribution(AbstractRepoObject):
             filename = '{}/binary-{}/Packages{}'.format(component, architecture, extension)
 
             if filename in files:
-                filedata = files[filename]
+                file_data = files[filename]
 
-                verified, contents = self._download_file(['dists', self.distribution, filename], reader, filedata)
+                verified, contents = self._download_file(['dists', self.distribution, filename], reader, file_data)
 
                 print('Packages file verification returned', str(verified))
                 # print(contents.decode('utf-8'))
@@ -289,7 +289,7 @@ class Distribution(AbstractRepoObject):
 
         If the Repository has a GPG Context, the signature will also be verified.
         In that case, the file "InRelease" is downloaded first, followed by
-        the "Release" and detatched signature "Release.gpg" if the former was
+        the "Release" and detached signature "Release.gpg" if the former was
         not available.
 
         Without a GPG context, only "Release" is downloaded.

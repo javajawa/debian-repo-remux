@@ -6,7 +6,7 @@ from typing import List, Generator, Dict, Optional
 
 class TagBlock:
     """
-    Base class that describes an arbitary tag-block in a Apt/Dpkg style
+    Base class that describes an arbitrary tag-block in a APT / DPKG style
     file.
 
     This class acts as if it is a dict/hash, and provides
