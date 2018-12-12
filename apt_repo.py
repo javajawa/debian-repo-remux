@@ -9,8 +9,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import os
+import gzip
+import hashlib
 
-from typing import List, IO, Type, Optional
+from typing import List, IO, Type, Optional, Callable, Dict
 from gnupg import GPG
 
 import apt_tags
@@ -66,12 +68,49 @@ class AptRepoObject(object):
             raise UnattachedAptObjectException()
 
         path = self._resolve_path(relative_path)
+        print(path)
 
         if self.repo.protocol in ['s3']:
             raise Exception("s3 not yet implemented")
 
         else:
-            return urllib.request.urlopen(path)
+            try:
+                return urllib.request.urlopen(path)
+            except urllib.error.HTTPError as err:
+                err.msg += '\n' + path
+                raise err
+
+    def _download_file(self, path: List[str], decoder: Callable, hashes: Dict[str, str]):
+        if not self.repo:
+            raise UnattachedAptObjectException()
+
+        hash_func = ...  # type: hashlib
+        output = b''
+        size = 0
+
+        for hash_value, hash_name in [('SHA256', 'sha256'), ('SHA512', 'sha512'), ('MD5Sum', 'md5')]:
+            if hash_value in hashes:
+                hash_value = hashes[hash_value]
+                hash_func = hashlib.new(hash_name)  # type: hashlib
+
+                break
+
+        if 'size' not in hashes:
+            raise Exception("No valid hash supplied")  # FIXME: Make this a more specific Exception type
+
+        if not hash_func:
+            raise Exception("No valid hash supplied")  # FIXME: Make this a more specific Exception type
+
+        with self._open_file(path) as stream:
+            for block in iter(lambda: stream.read(4096), b""):
+                hash_func.update(block)
+                size += len(block)
+                output += block
+
+        output = decoder(output)
+        valid = (hash_func.hexdigest() == hash_value) and (size == hashes['size'])
+
+        return valid, output
 
     def _list_dir(self, relative_path: List[str]) -> IO:
         if not self.repo:
@@ -122,7 +161,14 @@ class Distribution(AptRepoObject):
     """A distribution contains the meta data for a major grouping of packages
     within a :class:Repo, such as all of those used for a major release.
 
+    All of the packages in a repo are expected to be compatible with a system,
+    although some may conflict directly with each other.
 
+    A distribution is split into package lists by "component" (a judgement
+    grouping, normally based on licensing requirements) and "architecture"
+    (the CPU type that the package was built for).
+
+    All combinations of these should have a valid PackageList.
     """
 
     distribution = ...  # type: str
@@ -138,7 +184,7 @@ class Distribution(AptRepoObject):
     def exists(self) -> bool:
         """Returns whether the distribution currently existing in the repo.
 
-        Existing is, in this context, defined as having a parseable
+        Existing is, in this context, defined as having a parse-able
         release file.
         If the Repo was created with a GPG context, then the release file
         must also have a valid signature (either inline in the InRelease
@@ -157,16 +203,50 @@ class Distribution(AptRepoObject):
         return self._exists
 
     def components(self) -> List[str]:
+        """Returns the list of components that are in this Distribution
+
+        :return List[str]:
+        """
         if not self.exists():
             raise NonExistentException
 
         return self._get_release_file().components()
 
     def architectures(self) -> List[str]:
+        """Gets the list of architectures that this Distribution supports
+
+        :return List[str]: A list of architecture names
+        """
         if not self.exists():
             raise NonExistentException
 
         return self._get_release_file().architectures()
+
+    def package_list(self, component: str, architecture: str) -> None:
+        """Gets the package list for a specific component and architecture
+        in the current distribution.
+
+        :param str component:
+        :param str architecture:
+        :return PackageList:
+        """
+        if not self.exists():
+            raise NonExistentException
+
+        files = self._get_release_file().files
+
+        for extension, reader in [('.gz', gzip.decompress), ('', lambda data: data)]:  # type: (str, Callable)
+            filename = '{}/binary-{}/Packages{}'.format(component, architecture, extension)
+
+            if filename in files:
+                filedata = files[filename]
+
+                verified, contents = self._download_file(['dists', self.distribution, filename], reader, filedata)
+
+                print('Packages file verification returned', str(verified))
+                # print(contents.decode('utf-8'))
+
+                break
 
     def _get_release_file(self):
         if self.release_data:

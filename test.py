@@ -12,5 +12,9 @@ if __name__ == "__main__":
     distribution = repo.distribution('stable')
 
     print(distribution.exists())
-    print(distribution.components())
-    print(distribution.architectures())
+
+    if distribution.exists():
+        print(distribution.components())
+        print(distribution.architectures())
+        print(distribution.release_data.files)
+        print(distribution.package_list('main', 'amd64'))
