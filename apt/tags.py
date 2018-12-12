@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Classes for handling APT/DPKG Style tag files.
+
+Tag files can be created from an IO-like object.
+Subclasses are provided to add extra logic and validation.
+"""
 
 from typing import List, Generator, Dict, Optional
 
@@ -101,6 +106,10 @@ class TagBlock:
 
 
 class ReleaseFile(TagBlock):
+    """Release File wrapper.
+    
+    The ReleaseFile is the overall meta data file of a :class:apt.repo.Distribution
+    """
     def __init__(self):
         super(ReleaseFile, self).__init__()
 

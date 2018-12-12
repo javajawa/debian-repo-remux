@@ -21,7 +21,7 @@ import hashlib
 from typing import List, IO, Type, Optional, Callable, Dict
 from gnupg import GPG
 
-import apt_tags
+from apt import tags
 
 
 class UnattachedAptObjectException(Exception):
@@ -210,7 +210,7 @@ class Distribution(AbstractRepoObject):
 
     distribution = ...  # type: str
     _exists = ...  # type: bool
-    release_data = None  # type: Optional[apt_tags.ReleaseFile]
+    release_data = None  # type: Optional[tags.ReleaseFile]
 
     def __init__(self, parent: 'Repository', name: str):
         super(Distribution, self).__init__(parent, parent)
@@ -284,7 +284,7 @@ class Distribution(AbstractRepoObject):
 
                 break
 
-    def _get_release_file(self) -> apt_tags.ReleaseFile:
+    def _get_release_file(self) -> tags.ReleaseFile:
         """Download and parses the InRelease/Release files for this Repository.
 
         If the Repository has a GPG Context, the signature will also be verified.
@@ -348,6 +348,6 @@ class Distribution(AbstractRepoObject):
             release_stream.close()
 
             # Parse the data
-            self.release_data = next(apt_tags.read_tag_file(release_data, apt_tags.ReleaseFile))
+            self.release_data = next(tags.read_tag_file(release_data, tags.ReleaseFile))
 
             return self.release_data

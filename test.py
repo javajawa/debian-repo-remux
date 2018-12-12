@@ -3,7 +3,7 @@
 Test a thing
 """
 
-from apt_repo import Repository
+from apt.repo import Repository
 
 if __name__ == "__main__":
     repo = Repository('https://deb.tgvg.net/debian')
