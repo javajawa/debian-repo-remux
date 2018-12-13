@@ -294,7 +294,7 @@ class Apache(UrlLib):
 
         xml = xml.etree.ElementTree.fromstring(html)
 
-        for element in xml.findall('.//li/a')[1:]:  # type: xml.etree.Element
+        for element in xml.findall('./body/ul/li/a')[1:]:  # type: xml.etree.Element
             file = element.attrib['href']
 
             if file[-1] == '/':
