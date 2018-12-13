@@ -5,7 +5,8 @@ Test a thing
 
 from apt.repo import Repository
 
-if __name__ == "__main__":
+def main():
+    """Main function"""
     repo = Repository('https://deb.tgvg.net/debian')
     print(vars(repo))
 
@@ -13,8 +14,14 @@ if __name__ == "__main__":
 
     print(distribution.exists())
 
-    if distribution.exists():
-        print(distribution.components())
-        print(distribution.architectures())
-        print(distribution.release_data.files)
-        print(distribution.package_list('main', 'amd64'))
+    if not distribution.exists():
+        return
+
+    print(distribution.components())
+    print(distribution.architectures())
+    print(distribution.release_data.files)
+    print(distribution.package_list('main', 'amd64'))
+
+
+if __name__ == "__main__":
+    main()

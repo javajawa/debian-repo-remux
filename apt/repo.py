@@ -14,14 +14,13 @@ it inherits information like its URI for reading and writing data.
 import urllib.error
 import urllib.parse
 import urllib.request
-import os
 import gzip
 import hashlib
 
 from typing import List, IO, Type, Optional, Callable, Dict
 from gnupg import GPG
 
-from apt import tags
+from apt import tags, transport
 
 
 class UnattachedAptObjectException(Exception):
@@ -67,33 +66,43 @@ class AbstractRepoObject(object):
 
         return None
 
-    def _resolve_path(self, relative_path: List[str]) -> str:
-        if not self.repo:
-            raise UnattachedAptObjectException()
-
-        path = self.repo.base_uri
-
-        for segment in relative_path:
-            path = path + '/' + segment
-
-        return path
-
     def _open_file(self, relative_path: List[str]) -> IO:
+        """Opens a repo in the file for read
+
+        :param List[str] relative_path:
+
+        :return IO:
+
+        :raises UnattachedAptObjectException:
+        :raises NotImplementedError:
+        :raises URIMismatchError:
+        :raises FileNotFoundError:
+        """
         if not self.repo:
             raise UnattachedAptObjectException()
 
-        path = self._resolve_path(relative_path)
-        print(path)
+        path = urllib.request.urljoin(self.repo.base_uri, '/'.join(relative_path))
 
-        if self.repo.protocol in ['s3']:
-            raise Exception("s3 not yet implemented")
+        return self.repo.transport.open_read(path)
 
-        else:
-            try:
-                return urllib.request.urlopen(path)
-            except urllib.error.HTTPError as err:
-                err.msg += '\n' + path
-                raise err
+    def _list_dir(self, relative_path: List[str]) -> 'transport.DirectoryListing':
+        """Gets a Directory listing for a directory relative to the Repo
+
+        :param List[str] relative_path:
+
+        :return transport.DirectoryListing:
+
+        :raises UnattachedAptObjectException:
+        :raises NotImplementedError:
+        :raises URIMismatchError:
+        :raises FileNotFoundError:
+        """
+        if not self.repo:
+            raise UnattachedAptObjectException()
+
+        path = urllib.request.urljoin(self.repo.base_uri, '/'.join(relative_path))
+
+        return self.repo.transport.list_directory(path)
 
     def _download_file(self, path: List[str], decoder: Callable, hashes: Dict[str, str]):
         if not self.repo:
@@ -127,22 +136,6 @@ class AbstractRepoObject(object):
 
         return valid, output
 
-    def _list_dir(self, relative_path: List[str]) -> IO:
-        if not self.repo:
-            raise UnattachedAptObjectException()
-
-        path = self._resolve_path(relative_path)
-
-        for segment in relative_path:
-            path = os.path.join(path, segment)
-            print(path)
-
-        if self.repo.protocol in ['s3']:
-            raise Exception("s3 not yet implemented")
-
-        else:
-            return urllib.request.urlopen(path)
-
 
 class Repository(AbstractRepoObject):
     """Class that represents a complete APT repository
@@ -158,12 +151,12 @@ class Repository(AbstractRepoObject):
     metadata about the Packages in the pool, allowing tools to find relevant
     packages, do dependency resolution, and then download the packages.
     """
-    protocol = ...  # type: str
     base_uri = ...  # type: str
 
     distributions = None  # type: Optional[List[Distribution]]
 
     gpg = ...  # type: Optional[GPG]
+    transport = ...  # type: transport.Transport
 
     def __init__(self, base_uri: str, gpg: Optional[GPG] = None):
         super(Repository, self).__init__(None, self)
@@ -171,10 +164,13 @@ class Repository(AbstractRepoObject):
         if base_uri[0] == '/':
             base_uri = 'file://' + base_uri
 
-        self.protocol = urllib.parse.urlparse(base_uri).scheme
+        if base_uri[-1] != '/':
+            base_uri += '/'
+
         self.base_uri = base_uri
 
         self.gpg = gpg
+        self.transport = transport.Transport.get_transport(self.base_uri)
 
         self.distributions = None
 
@@ -233,7 +229,7 @@ class Distribution(AbstractRepoObject):
 
         try:
             self._exists = bool(self._get_release_file())
-        except:
+        except FileNotFoundError:
             self._exists = False
 
         return self._exists
@@ -322,12 +318,9 @@ class Distribution(AbstractRepoObject):
                 if release_gpg_data.valid:
                     release_data = release_gpg_data.data
 
-            # Treat all non-404 errors as fatal
-            # A 404 here still allows us to fall back to the Release file
-            # FIXME: self._open_file should not ever throw this, but a custom exception clear for multiple transports
-            except urllib.error.HTTPError as ex:
-                if ex.code != 404:
-                    raise ex
+            # A Not Found here still allows us to fall back to the Release file
+            except FileNotFoundError:
+                pass
 
         # If we have no data, either InRelease was wrong, or we have no GPG
         if not release_data:
