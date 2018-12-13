@@ -153,7 +153,7 @@ class Repository(AbstractRepoObject):
     """
     base_uri = ...  # type: str
 
-    distributions = None  # type: Optional[List[Distribution]]
+    distributions = {}  # type: Dict[str, Distribution]
 
     gpg = ...  # type: Optional[GPG]
     transport = ...  # type: transport.Transport
@@ -186,7 +186,10 @@ class Repository(AbstractRepoObject):
         :param dtr distribution:
         :return Distribution:
         """
-        return Distribution(self, distribution)
+        if distribution not in self.distributions:
+            self.distributions[distribution] = Distribution(self, distribution)
+
+        return self.distributions[distribution]
 
 
 class Distribution(AbstractRepoObject):
