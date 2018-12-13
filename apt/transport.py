@@ -38,8 +38,8 @@ class Transport:
 
     The functions 'exists' and 'open_read' are required to be implemented."""
 
-    @classmethod
-    def get_transport(cls, uri: str) -> 'Transport':
+    @staticmethod
+    def get_transport(uri: str) -> 'Transport':
         """Gets the best Transport based on a URI
 
         :param str uri:
