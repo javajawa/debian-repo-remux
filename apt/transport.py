@@ -27,7 +27,7 @@ class DirectoryListing:
         if files is None:
             files = []
         if directories is None:
-            files = []
+            directories = []
 
         self.files = files
         self.directories = directories
@@ -235,3 +235,71 @@ class UrlLib(Transport):
         :raises NotImplementedError:
         """
         raise NotImplementedError('URLLib has no generic "exists" logic')
+
+
+class Apache(UrlLib):
+    """Special sub-class of the generic URLLib that utilises Apache's AutoIndex
+    functionality to list Directories"""
+
+    def exists(self, uri: str) -> bool:
+        """Returns whether a given uri exists.
+
+        :param str uri:
+
+        :raises NotImplementedError:
+        """
+        raise NotImplementedError('URLLib has no generic "exists" logic')
+
+    def open_write(self, uri: str) -> IO:
+        """Opens a file as an IO-like for writing
+
+        :param string uri:
+
+        :raises NotImplementedError:
+        """
+        raise NotImplementedError('URLLib has no generic "exists" logic')
+
+    def list_directory(self, uri: str) -> DirectoryListing:
+        """Returns a list of files and directories in a directory
+
+        :param string uri:
+
+        :return DirectoryListing:
+
+        :raises NotImplementedError:
+        :raises FileNotFoundError:
+        """
+        url = urllib.parse.urlparse(uri)  # type: urllib.parse.ParseResult
+
+        if url.scheme != 'http' and url.scheme != 'https':
+            raise URIMismatchError("Scheme must be file:")
+
+        listing = DirectoryListing()
+
+        if uri[-1] != '/':
+            uri += '/'
+
+        uri += '?F=0'
+
+        try:
+            http = urllib.request.urlopen(uri)
+        except (urllib.error.HTTPError, urllib.error.URLError):
+            raise FileNotFoundError(uri)
+
+        http.readline()
+        html = http.read()
+        http.close()
+
+        import xml.etree.ElementTree
+
+        xml = xml.etree.ElementTree.fromstring(html)
+
+        for element in xml.findall('.//li/a')[1:]:  # type: xml.etree.Element
+            file = element.attrib['href']
+
+            if file[-1] == '/':
+                listing.directories.append(file[:-1])
+            else:
+                listing.files.append(file)
+
+        return listing
