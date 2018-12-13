@@ -173,6 +173,12 @@ class ReleaseFile(TagBlock):
 
 
 def read_tag_file(data: bytes, template: callable(TagBlock) = TagBlock) -> Generator[TagBlock, None, None]:
+    """Loads in a list of TagBlocks from a data block.
+
+    :param bytes data:
+    :param callable(TagBlock) template:
+    :return:
+    """
     tags = template()  # type: TagBlock
     key = None
 

@@ -111,10 +111,10 @@ class AbstractRepoObject(object):
                 break
 
         if 'size' not in hashes:
-            raise Exception("No valid hash supplied")  # FIXME: Make this a more specific Exception type
+            raise ValueError("File size missing from hash")
 
         if not hash_func:
-            raise Exception("No valid hash supplied")  # FIXME: Make this a more specific Exception type
+            raise ValueError("No valid hash supplied")
 
         with self._open_file(path) as stream:
             for block in iter(lambda: stream.read(4096), b""):
