@@ -286,7 +286,9 @@ class Apache(UrlLib):
         except (urllib.error.HTTPError, urllib.error.URLError):
             raise FileNotFoundError(uri)
 
-        http.readline()
+        if http.readline() != b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n':
+            raise FileNotFoundError(uri)
+
         html = http.read()
         http.close()
 
