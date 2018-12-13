@@ -172,8 +172,6 @@ class Repository(AbstractRepoObject):
         self.gpg = gpg
         self.transport = transport.Transport.get_transport(self.base_uri)
 
-        self._distributions = None
-
     def distribution(self, distribution: str) -> 'Distribution':
         """Gets a distribution object from this Repo by name.
 
@@ -214,6 +212,9 @@ class Repository(AbstractRepoObject):
         you can get the list of distribution keys with the .distributions()
         method, which may include distributions you have manually added.
 
+        If the folder scan of /dists/ causes a not found error, then this
+        method assumes the repo is blank, and returns true.
+
         :return bool:
 
         :raises URIMismatchError:
@@ -223,9 +224,11 @@ class Repository(AbstractRepoObject):
             listing = self._list_dir(['dists'])
         except NotImplementedError:
             return False
+        except FileNotFoundError:
+            return True
 
         for directory in listing.directories:
-            if directory not in self.distributions:
+            if directory not in self._distributions:
                 self.distribution(directory)
 
         return True
