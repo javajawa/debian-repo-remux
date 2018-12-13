@@ -17,7 +17,7 @@ import urllib.request
 import gzip
 import hashlib
 
-from typing import List, IO, Type, Optional, Callable, Dict
+from typing import List, IO, Type, Optional, Callable, Dict, KeysView
 from gnupg import GPG
 
 from apt import tags, transport
@@ -153,7 +153,7 @@ class Repository(AbstractRepoObject):
     """
     base_uri = ...  # type: str
 
-    distributions = {}  # type: Dict[str, Distribution]
+    _distributions = {}  # type: Dict[str, Distribution]
 
     gpg = ...  # type: Optional[GPG]
     transport = ...  # type: transport.Transport
@@ -172,7 +172,7 @@ class Repository(AbstractRepoObject):
         self.gpg = gpg
         self.transport = transport.Transport.get_transport(self.base_uri)
 
-        self.distributions = None
+        self._distributions = None
 
     def distribution(self, distribution: str) -> 'Distribution':
         """Gets a distribution object from this Repo by name.
@@ -183,13 +183,52 @@ class Repository(AbstractRepoObject):
         Note that the Distribution may not exist, you must check that with
         distribution.exists().
 
-        :param dtr distribution:
+        :param str distribution:
         :return Distribution:
         """
-        if distribution not in self.distributions:
-            self.distributions[distribution] = Distribution(self, distribution)
+        if distribution not in self._distributions:
+            self._distributions[distribution] = Distribution(self, distribution)
 
-        return self.distributions[distribution]
+        return self._distributions[distribution]
+
+    def distributions(self) -> KeysView[str]:
+        """Returns the list of distributions that are currently known of in
+        this repo. These distributions may or may not exists, and will also
+        include any distribution you have attempted to access.
+
+        This list will be initially blank, and can be populated with calls
+        to .scan_distributions() or .distribution().
+
+        :return KeysView[str]:
+        """
+        return self._distributions.keys()
+
+    def scan_distributions(self) -> bool:
+        """Attempt to scan the repository for a list of distributions in a
+        repository.
+
+        This functionality requires the ability to list directories and check
+        for existence of files on the remote.
+
+        This function returns a boolean of whether the scan was successful;
+        you can get the list of distribution keys with the .distributions()
+        method, which may include distributions you have manually added.
+
+        :return bool:
+
+        :raises URIMismatchError:
+        :raises FileNotFoundError:
+        """
+        try:
+            listing = self._list_dir(['dists'])
+        except NotImplementedError:
+            return False
+
+        for directory in listing.directories:
+            if directory not in self.distributions:
+                self.distribution(directory)
+
+        return True
 
 
 class Distribution(AbstractRepoObject):
@@ -204,7 +243,7 @@ class Distribution(AbstractRepoObject):
     (the CPU type that the package was built for).
 
     All combinations of these should have a valid PackageList of packages in
-    the Repository's Pool
+    the Repository's Pool.
     """
 
     distribution = ...  # type: str
