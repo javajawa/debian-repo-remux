@@ -64,7 +64,6 @@ class Transport:
 
         :return bool:
 
-        :raises NotImplementedError:
         :raises URIMismatchError:
         """
         pass
@@ -205,8 +204,6 @@ class UrlLib(Transport):
         :param str uri:
 
         :return bool:
-
-        :raises NotImplementedError:
         """
         if self._last_req:
             self._last_req.close()
