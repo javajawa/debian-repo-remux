@@ -110,6 +110,8 @@ class ReleaseFile(TagBlock):
     
     The ReleaseFile is the overall meta data file of a :class:apt.repo.Distribution
     """
+    files = ...  # type: Dict[str, FileHash]
+
     def __init__(self):
         super(ReleaseFile, self).__init__()
 
@@ -129,14 +131,11 @@ class ReleaseFile(TagBlock):
             checksum = checksum.strip()
             filename = filename.strip()
 
-            if filename in self.files:
-                self.files[filename][key] = checksum
-            else:
-                self.files[filename] = {
-                    'filename': filename,
-                    'size': size,
-                    key: checksum
-                }
+            if filename not in self.files:
+                self.files[filename] = FileHash(filename)
+                self.files[filename].size = size
+
+            self.files[filename].__setattr__(key, checksum)
 
     def __getitem__(self, key: str) -> Optional[str]:
         if key not in self.magic:
@@ -150,7 +149,7 @@ class ReleaseFile(TagBlock):
             if key not in info:
                 continue
 
-            output.append('{0} {1:>12} {2}'.format(info[key], info['size'], info['filename']))
+            output.append('{0} {1:>12} {2}'.format(info.__getattribute__(key), info.size, info.filename))
 
         if not output:
             return None
@@ -216,3 +215,35 @@ def read_tag_file(data: bytes, template: callable(TagBlock) = TagBlock) -> Gener
 
     if len(tags):
         yield tags
+
+
+class FileHash(object):
+    """Class representing all the hashes APT makes allowances for."""
+
+    filename = ...  # type: str
+    size = ...  # type: int
+    md5 = ...  # type: str
+    sha1 = ...  # type: str
+    sha256 = ...  # type: str
+    sha512 = ...  # type: str
+
+    def __init__(self, filename: str):
+        self.filename = filename
+
+    # _file = ...  # type: Optional[AbstractRepoObject]
+    #
+    # def __init__(self, parent: AbstractRepoObject, filename: str):
+    #     super().__init__(parent, parent.repo)
+    #
+    #     self.filename = filename
+    #     self._file = None
+
+    def __setattr__(self, key: str, value):
+        key = key.lower().replace('sum', '')
+        
+        return super(FileHash, self).__setattr__(key, value)
+
+    def __getattr__(self, key: str):
+        key = key.lower().replace('sum', '')
+
+        return super(FileHash, self).__getattribute__(key)

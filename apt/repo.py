@@ -21,6 +21,7 @@ from typing import List, IO, Type, Optional, Callable, Dict, KeysView
 from gnupg import GPG
 
 from apt import tags, transport
+from apt.tags import FileHash
 
 
 class UnattachedAptObjectException(Exception):
@@ -104,25 +105,26 @@ class AbstractRepoObject(object):
 
         return self.repo.transport.list_directory(path)
 
-    def _download_file(self, path: List[str], decoder: Callable, hashes: Dict[str, str]):
+    def _download_file(self, path: List[str], decoder: Callable, hashes: FileHash):
         if not self.repo:
             raise UnattachedAptObjectException()
 
         hash_func = ...  # type: hashlib
+        hash_value = ...  # type: str
         output = b''
         size = 0
 
-        for hash_value, hash_name in [('SHA256', 'sha256'), ('SHA512', 'sha512'), ('MD5Sum', 'md5')]:
-            if hash_value in hashes:
-                hash_value = hashes[hash_value]
+        for hash_name in ['sha256', 'sha512', 'sha1', 'md5']:
+            if hashes.__getattribute__(hash_name) != Ellipsis:
+                hash_value = hashes.__getattribute__(hash_name)
                 hash_func = hashlib.new(hash_name)  # type: hashlib
 
                 break
 
-        if 'size' not in hashes:
+        if hashes.size == Ellipsis:
             raise ValueError("File size missing from hash")
 
-        if not hash_func:
+        if hash_func == Ellipsis or hash_value == Ellipsis:
             raise ValueError("No valid hash supplied")
 
         with self._open_file(path) as stream:
@@ -132,7 +134,7 @@ class AbstractRepoObject(object):
                 output += block
 
         output = decoder(output)
-        valid = (hash_func.hexdigest() == hash_value) and (size == hashes['size'])
+        valid = (hash_func.hexdigest() == hash_value) and (size == hashes.size)
 
         return valid, output
 
