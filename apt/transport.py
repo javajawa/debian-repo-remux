@@ -9,7 +9,7 @@ import urllib.request
 import urllib.error
 import os.path
 
-from typing import IO, List, Optional
+from typing import IO, List, Optional, Dict
 
 
 class URIMismatchError(Exception):
@@ -195,14 +195,38 @@ class File(Transport):
 class UrlLib(Transport):
     """Transport that attempts to access arbitrary protocols using urllib"""
 
+    _last_uri = ...  # type: str
+    _last_req = None  # type: Optional[IO]
+    _exists = {}  # type: Dict[str, bool]
+
     def exists(self, uri: str) -> bool:
         """Returns whether a given uri exists.
 
         :param str uri:
 
+        :return bool:
+
         :raises NotImplementedError:
         """
-        raise NotImplementedError('URLLib has no generic "exists" logic')
+        if self._last_req:
+            self._last_req.close()
+            self._last_req = None
+            self._last_uri = None
+
+        if uri in self._exists:
+            return self._exists[uri]
+
+        try:
+            self._last_req = urllib.request.urlopen(uri)
+            self._last_uri = uri
+            self._exists[uri] = True
+
+            return True
+
+        except (urllib.error.HTTPError, urllib.error.URLError):
+            self._exists[uri] = False
+
+            return False
 
     def open_read(self, uri: str) -> IO:
         """Opens a file as an IO-like for reading
@@ -213,51 +237,51 @@ class UrlLib(Transport):
 
         :raises FileNotFoundError:
         """
+        if self._last_req:
+            if self._last_uri == uri:
+                return self._last_req
+
+            self._last_req.close()
+            self._last_req = None
+            self._last_uri = None
+
         try:
             return urllib.request.urlopen(uri)
         except (urllib.error.HTTPError, urllib.error.URLError) as ex:
             raise FileNotFoundError(uri, "not found", ex)
 
-    def open_write(self, uri: str) -> IO:
+    def open_write(self, uri: str):
         """Opens a file as an IO-like for writing
 
         :param string uri:
 
         :raises NotImplementedError:
         """
+        if self._last_req:
+            self._last_req.close()
+            self._last_req = None
+            self._last_uri = None
+
         raise NotImplementedError('URLLib has no generic "exists" logic')
 
-    def list_directory(self, uri: str) -> DirectoryListing:
+    def list_directory(self, uri: str):
         """Returns a list of files and directories in a directory
 
         :param string uri:
 
         :raises NotImplementedError:
         """
+        if self._last_req:
+            self._last_req.close()
+            self._last_req = None
+            self._last_uri = None
+
         raise NotImplementedError('URLLib has no generic "exists" logic')
 
 
 class Apache(UrlLib):
     """Special sub-class of the generic URLLib that utilises Apache's AutoIndex
     functionality to list Directories"""
-
-    def exists(self, uri: str) -> bool:
-        """Returns whether a given uri exists.
-
-        :param str uri:
-
-        :raises NotImplementedError:
-        """
-        raise NotImplementedError('URLLib has no generic "exists" logic')
-
-    def open_write(self, uri: str) -> IO:
-        """Opens a file as an IO-like for writing
-
-        :param string uri:
-
-        :raises NotImplementedError:
-        """
-        raise NotImplementedError('URLLib has no generic "exists" logic')
 
     def list_directory(self, uri: str) -> DirectoryListing:
         """Returns a list of files and directories in a directory
@@ -296,6 +320,7 @@ class Apache(UrlLib):
 
         xml = xml.etree.ElementTree.fromstring(html)
 
+        # Ignore the first element (which is always ..)
         for element in xml.findall('./body/ul/li/a')[1:]:  # type: xml.etree.Element
             file = element.attrib['href']
 
