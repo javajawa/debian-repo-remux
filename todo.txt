@@ -1,0 +1,3 @@
+ - Add apt.transport.S3
+ - Make apt.transport.Transport.get_transport return Apache where able/useful
+ - Add FileHashes.calculate(data: str) and FileHashes.calculate(data: IO)
