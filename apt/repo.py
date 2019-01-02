@@ -14,8 +14,8 @@ it inherits information like its URI for reading and writing data.
 import urllib.error
 import urllib.parse
 import urllib.request
-import gzip
 import hashlib
+import zlib
 
 from typing import List, IO, Type, Optional, Callable, Dict, KeysView
 from gnupg import GPG
@@ -106,6 +106,13 @@ class AbstractRepoObject(object):
         return self.repo.transport.list_directory(path)
 
     def _download_file(self, path: List[str], decoder: Callable, hashes: FileHash):
+        """
+
+        :param List[str] path:
+        :param Callable decoder:
+        :param FileHash hashes:
+        :return:
+        """
         if not self.repo:
             raise UnattachedAptObjectException()
 
@@ -131,9 +138,8 @@ class AbstractRepoObject(object):
             for block in iter(lambda: stream.read(4096), b""):
                 hash_func.update(block)
                 size += len(block)
-                output += block
+                output += decoder(block)
 
-        output = decoder(output)
         valid = (hash_func.hexdigest() == hash_value) and (size == hashes.size)
 
         return valid, output
@@ -314,18 +320,30 @@ class Distribution(AbstractRepoObject):
 
         files = self._get_release_file().files
 
-        for extension, reader in [('.gz', gzip.decompress), ('', lambda data: data)]:  # type: (str, Callable)
+        # TODO: Improve this logic not to generate a gzip object on every call
+        gzipper = zlib.decompressobj(16 + zlib.MAX_WBITS)
+
+        for extension, reader in [('.gz', gzipper.decompress), ('', lambda data: data)]:  # type: (str, Callable)
             filename = '{}/binary-{}/Packages{}'.format(component, architecture, extension)
 
             if filename in files:
                 file_data = files[filename]
 
-                verified, contents = self._download_file(['dists', self.distribution, filename], reader, file_data)
+                verified, contents = self._download_file(
+                    ['dists', self.distribution, filename],
+                    reader, file_data
+                )
 
                 print('Packages file verification returned', str(verified))
-                # print(contents.decode('utf-8'))
 
-                break
+                if not verified:
+                    # TODO: Handle this
+                    raise Exception
+
+                for package in tags.read_tag_file(contents, tags.TagBlock):
+                    print(package)
+
+                return contents
 
     def _get_release_file(self) -> tags.ReleaseFile:
         """Download and parses the InRelease/Release files for this Repository.
