@@ -115,8 +115,8 @@ class AbstractRepoObject(object):
         size = 0
 
         for hash_name in ['sha256', 'sha512', 'sha1', 'md5']:
-            if hashes.__getattribute__(hash_name) != Ellipsis:
-                hash_value = hashes.__getattribute__(hash_name)
+            if hashes[hash_name] != Ellipsis:
+                hash_value = hashes[hash_name]
                 hash_func = hashlib.new(hash_name)  # type: hashlib
 
                 break

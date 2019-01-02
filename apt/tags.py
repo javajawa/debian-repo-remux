@@ -247,3 +247,8 @@ class FileHash(object):
         key = key.lower().replace('sum', '')
 
         return super(FileHash, self).__getattribute__(key)
+
+    def __getitem__(self, key: str):
+        key = key.lower().replace('sum', '')
+
+        return super(FileHash, self).__getattribute__(key)
