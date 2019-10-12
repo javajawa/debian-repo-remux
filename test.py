@@ -4,19 +4,19 @@ Test a thing
 """
 
 from apt.repo import Repository
-from apt.transport import Apache
 
 
+# noinspection PyProtectedMember
 def main():
-    """Main function"""
-    repo = Repository('https://deb.tgvg.net/debian')
-    print(vars(repo))
+    """
+    Main function
+    """
+    upstream_debian_repo = Repository('https://cdn-aws.deb.debian.org/debian/')
+    print(vars(upstream_debian_repo))
 
-    print("Initial Scan:", repo.scan_distributions(), repo.distributions())
-    repo.transport = Apache()
-    print("Apache Scan: ", repo.scan_distributions(), repo.distributions())
+    print("Initial Scan:", upstream_debian_repo.scan_distributions(), upstream_debian_repo.distributions())
 
-    distribution = repo.distribution('stable')
+    distribution = upstream_debian_repo.distribution('stable')
 
     print(distribution.exists())
 
@@ -26,7 +26,11 @@ def main():
     print(distribution.components())
     print(distribution.architectures())
     print(distribution.release_data.files)
-    print(distribution.package_list('main', 'amd64'))
+    packages = distribution.package_list('main', 'amd64')
+
+    print(packages)
+    print(len(packages))
+    print(len(upstream_debian_repo._pool))
 
 
 if __name__ == "__main__":
