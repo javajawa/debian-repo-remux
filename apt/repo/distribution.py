@@ -51,8 +51,8 @@ class Distribution(AbstractRepoObject):
     release_data: Optional[tags.ReleaseFile] = None
     _packages: Optional[PackageList] = None
 
-    def __init__(self, parent: 'apt.repo.Repository', name: str):
-        AbstractRepoObject.__init__(self, parent, parent)
+    def __init__(self, parent: AbstractRepoObject, name: str):
+        AbstractRepoObject.__init__(self, parent.repo, parent)
 
         self.distribution = name
 
@@ -139,6 +139,7 @@ class Distribution(AbstractRepoObject):
         )
 
         for package in tags.read_tag_file(contents):
+            # noinspection PyProtectedMember
             # pylint: disable=W0212
             imported_package = self.repo._add_package(package, package['Filename'])
             self._packages.add(imported_package)

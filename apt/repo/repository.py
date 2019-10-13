@@ -156,7 +156,7 @@ class Repository(AbstractRepoObject):
 
         The package can be one of:
          - An existing package object, which exists
-         - An IO-like (implements "read") object
+         - An IO-like (implements "read") object the contains a .deb file
         """
 
         # If we have been supplied a package object, we need to copy it from
@@ -172,10 +172,9 @@ class Repository(AbstractRepoObject):
 
             # Download the package from the remote repo, and verify it
             # pylint: disable=W0212
-            deb_data = package._download_file([package['Filename']], package.hashes)
+            deb_data = package._download_file([package['Filename']], package.hashes())
 
-            # FIXME: Download or generate contents file
-            # contents_data = package.repo._open_file([package['Filename'] + '.contents'])
+            contents_data = package.repo.contents()
 
             source_file = package['Filename']
 
@@ -194,8 +193,7 @@ class Repository(AbstractRepoObject):
             package = deb.extract_control_file(deb_data)
             package['SHA256'] = sha256
 
-            # FIXME: extract the contents list from the package
-            # contents_data =
+            contents_data = deb.extract_contents_list(deb_data)
 
             source_file = 'buffer ' + str(package)
 
@@ -212,7 +210,7 @@ class Repository(AbstractRepoObject):
 
         filename.append(package['Package'])
 
-        basename = "{0['Package']}_{0['Version']}_{0['Architecture']}.deb".format(package)
+        basename = "{0[Package]}_{0[Version]}_{0[Architecture]}.deb".format(package)
         filename.append(basename)
 
         with self._write_file(filename) as output:
@@ -221,14 +219,17 @@ class Repository(AbstractRepoObject):
         package = Package(self, self, package)
         package['Filename'] = '/'.join(filename)
 
+        if contents_data and len(contents_data) > 0:
+            # pylint: disable=W0212
+            package._contents = contents_data
+
         filename[-1] = basename + '.dat'
         with self._write_file(filename) as output:
             output.write(str(package).encode())
 
-        # FIXME: Enable writing of the package's content lists
-        # filename[-1] = basename + '.contents'
-        # with self._write_file(filename) as output:
-        #     output.write(str(package))
+        filename[-1] = basename + '.contents'
+        with self._write_file(filename) as output:
+            output.write('\n'.join(package.contents()).encode())
 
         self._add_package(package, source_file)
 

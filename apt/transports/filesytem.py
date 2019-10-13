@@ -9,7 +9,9 @@ import os.path
 import urllib.parse
 from typing import IO
 
-from apt.transport import URIMismatchError, DirectoryListing, Transport
+from apt.transport import Transport
+from apt.transport.exceptions import URIMismatchError
+from apt.transport.directorylisting import DirectoryListing
 
 
 class File(Transport):

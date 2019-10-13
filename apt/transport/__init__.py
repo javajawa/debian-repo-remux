@@ -8,7 +8,8 @@ a consistent interface with consistent exceptions
 
 import urllib.parse
 
-from .base import *
+from .exceptions import *
+from .directorylisting import DirectoryListing
 from .transport import Transport
 
 from ..transports import File, UrlLib

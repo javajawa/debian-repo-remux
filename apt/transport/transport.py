@@ -8,7 +8,7 @@ Abstract Transport
 import typing
 import abc
 
-from .base import DirectoryListing
+from apt.transport.directorylisting import DirectoryListing
 
 
 class Transport:

@@ -7,6 +7,7 @@ and provides implementations the required logic for reading and writing
 files to that repository.
 """
 
+import io
 import hashlib
 import urllib.request
 
@@ -24,10 +25,13 @@ class AbstractRepoObject:  # pylint: disable=R0903
     and provides implementations the required logic for reading and writing
     files to that repository.
     """
+
+    # noinspection PyUnresolvedReferences
     repo: 'apt.repo.Repository'
     parent: Optional['AbstractRepoObject']
 
-    def __init__(self, repository: 'repo.Repository', parent: Optional['AbstractRepoObject']):
+    # noinspection PyUnresolvedReferences
+    def __init__(self, repository: 'apt.repo.Repository', parent: Optional['AbstractRepoObject']):
         self.parent = parent
         self.repo = repository
 
@@ -49,6 +53,24 @@ class AbstractRepoObject:  # pylint: disable=R0903
             parent = self.parent
 
         return None
+
+    def _file_exists(self, relative_path: List[str]) -> bool:
+        """
+        Check if a file exists in the repo
+
+        :param List[str] relative_path:
+
+        :return bool:
+
+        :raises UnattachedAptObjectException:
+        :raises URIMismatchError:
+        """
+        if not self.repo:
+            raise UnattachedAptObjectException()
+
+        path = urllib.request.urljoin(self.repo.base_uri, '/'.join(relative_path))
+
+        return self.repo.transport.exists(path)
 
     def _open_file(self, relative_path: List[str]) -> IO:
         """
@@ -131,7 +153,7 @@ class AbstractRepoObject:  # pylint: disable=R0903
 
         hash_func: hashlib
         hash_value: str
-        output = b''
+        output = io.BytesIO()
         size = 0
 
         for hash_name in ['sha256', 'sha512', 'sha1', 'md5']:
@@ -142,20 +164,22 @@ class AbstractRepoObject:  # pylint: disable=R0903
                 break
 
         if hashes.size == Ellipsis:
-            raise ValueError("File size missing from hash")
+            raise ValueError('File size missing from hash')
 
         if Ellipsis in (hash_func, hash_value):
-            raise ValueError("No valid hash supplied")
+            raise ValueError('No valid hash supplied')
 
         with self._open_file(path) as stream:
             for block in iter(lambda: stream.read(4096), b""):
                 hash_func.update(block)
                 size += len(block)
-                output += decoder(block) if decoder else block
+                output.write(decoder(block) if decoder else block)
 
         valid = (hash_func.hexdigest() == hash_value) and (size == hashes.size)
 
         if not valid:
-            raise IncorrectChecksumException("Invalid checksum for {0}".format('/'.join(path)))
+            raise IncorrectChecksumException('Invalid checksum for {0}'.format('/'.join(path)))
 
-        return output
+        output.seek(0)
+
+        return output.read()

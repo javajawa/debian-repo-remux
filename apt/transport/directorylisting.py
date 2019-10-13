@@ -9,13 +9,6 @@ import dataclasses
 import typing
 
 
-class URIMismatchError(Exception):
-    """
-    Exception indicating that the supplied URI is not valid for the
-    selected transport
-    """
-
-
 @dataclasses.dataclass
 class DirectoryListing:
     """

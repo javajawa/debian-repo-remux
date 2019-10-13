@@ -11,7 +11,8 @@ import urllib.parse
 import urllib.request
 import xml
 
-from apt.transport.base import URIMismatchError, DirectoryListing
+from apt.transport.exceptions import URIMismatchError
+from apt.transport.directorylisting import DirectoryListing
 from apt.transports.urllib import UrlLib
 
 
